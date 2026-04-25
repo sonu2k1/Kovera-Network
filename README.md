@@ -2,6 +2,14 @@
 
 A comprehensive and dynamic analytics mapping dashboard built for the Kovera Network. This portal provides an interactive graph visualization of homes, listings, buyers, chains, and clusters, helping administrative users analyze real estate networks, user behavior, and geographic relationships effectively.
 
+## 🔗 Live Preview
+
+> **Try the app now:** [https://kovera-network-map-portal.vercel.app](https://kovera-network-map-portal.vercel.app)
+>
+> **Login Credentials:**
+> - Email: `Om@kovera.io`
+> - Password: `kovera2026`
+
 ## Features
 
 - **Interactive Network Canvas:** View relationships between "User Homes," "Seeded Listings," "Dream Homes," and "Pure Buyers."
