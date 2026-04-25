@@ -1,0 +1,792 @@
+{
+  "info": {
+    "name": "Kovera Analytics API",
+    "description": "Platform-wide admin analytics endpoints for Kovera-App.\n\nAll endpoints are under `/api/analytics/`.\n\nTime-series endpoints accept optional query params:\n- `from` (ISO 8601) — defaults to 30 days ago\n- `to` (ISO 8601) — defaults to now\n- `granularity` — `day` | `week` | `month` (default: `day`)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Dashboard",
+      "item": [
+        {
+          "name": "Dashboard Summary",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/dashboard?from=2025-01-01T00:00:00Z&to=2026-04-17T00:00:00Z",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "dashboard"],
+              "query": [
+                { "key": "from", "value": "2025-01-01T00:00:00Z" },
+                { "key": "to", "value": "2026-04-17T00:00:00Z" }
+              ]
+            },
+            "description": "Top-level KPIs with period-over-period comparison. Defaults to last 30 days if no params provided."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"totalUsers\": 1243,\n  \"totalAgents\": 87,\n  \"totalListings\": 312,\n  \"totalChains\": 45,\n  \"totalReferrals\": 198,\n  \"activeListings\": 278,\n  \"completedOnboarding\": 934,\n  \"periodComparison\": {\n    \"newUsers\": { \"current\": 142, \"previous\": 118, \"changePct\": 20.34 },\n    \"newAgents\": { \"current\": 12, \"previous\": 9, \"changePct\": 33.33 },\n    \"newChains\": { \"current\": 8, \"previous\": 5, \"changePct\": 60 },\n    \"newReferrals\": { \"current\": 34, \"previous\": 28, \"changePct\": 21.43 },\n    \"impressions\": { \"current\": 8920, \"previous\": 7105, \"changePct\": 25.54 }\n  }\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "User Signups (time-series)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/users/signups?from=2025-01-01T00:00:00Z&to=2026-04-17T00:00:00Z&granularity=month",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "users", "signups"],
+              "query": [
+                { "key": "from", "value": "2025-01-01T00:00:00Z" },
+                { "key": "to", "value": "2026-04-17T00:00:00Z" },
+                { "key": "granularity", "value": "month" }
+              ]
+            },
+            "description": "User signups over time. Granularity: day | week | month."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"buckets\": [\n    { \"period\": \"2025-01-01T00:00:00.000Z\", \"count\": 45 },\n    { \"period\": \"2025-02-01T00:00:00.000Z\", \"count\": 62 },\n    { \"period\": \"2025-03-01T00:00:00.000Z\", \"count\": 78 },\n    { \"period\": \"2025-04-01T00:00:00.000Z\", \"count\": 91 },\n    { \"period\": \"2025-05-01T00:00:00.000Z\", \"count\": 103 }\n  ],\n  \"total\": 379\n}"
+            }
+          ]
+        },
+        {
+          "name": "Onboarding Funnel",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/users/onboarding-funnel",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "users", "onboarding-funnel"]
+            },
+            "description": "Snapshot of onboarding step completion rates across all users."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"steps\": [\n    { \"step\": 0, \"count\": 210, \"pct\": 16.89 },\n    { \"step\": 1, \"count\": 185, \"pct\": 14.88 },\n    { \"step\": 2, \"count\": 160, \"pct\": 12.87 },\n    { \"step\": 3, \"count\": 142, \"pct\": 11.42 },\n    { \"step\": 4, \"count\": 128, \"pct\": 10.3 },\n    { \"step\": 5, \"count\": 118, \"pct\": 9.5 },\n    { \"step\": 6, \"count\": 300, \"pct\": 24.14 }\n  ],\n  \"completedCount\": 934,\n  \"completedPct\": 75.14\n}"
+            }
+          ]
+        },
+        {
+          "name": "Roles Distribution",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/users/roles",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "users", "roles"]
+            },
+            "description": "Distribution of user roles (buyer, seller, renter, landlord). Users can have multiple roles."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"roles\": [\n    { \"role\": \"buyer\", \"count\": 812 },\n    { \"role\": \"seller\", \"count\": 534 },\n    { \"role\": \"renter\", \"count\": 198 },\n    { \"role\": \"landlord\", \"count\": 87 }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "User Activity",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/users/activity?from=2025-03-01T00:00:00Z&to=2026-04-17T00:00:00Z",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "users", "activity"],
+              "query": [
+                { "key": "from", "value": "2025-03-01T00:00:00Z" },
+                { "key": "to", "value": "2026-04-17T00:00:00Z" }
+              ]
+            },
+            "description": "Active vs inactive users snapshot. Active = visitCount > 0."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"activeUsers\": 876,\n  \"inactiveUsers\": 367,\n  \"recentDigestUsers\": 412,\n  \"totalUsers\": 1243\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Engagement",
+      "item": [
+        {
+          "name": "Impression Volumes (time-series)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/engagement/impressions?from=2025-01-01T00:00:00Z&to=2026-04-17T00:00:00Z&granularity=week",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "engagement", "impressions"],
+              "query": [
+                { "key": "from", "value": "2025-01-01T00:00:00Z" },
+                { "key": "to", "value": "2026-04-17T00:00:00Z" },
+                { "key": "granularity", "value": "week" }
+              ]
+            },
+            "description": "Home impression volumes over time, grouped by action (shown/liked/disliked)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"buckets\": [\n    { \"period\": \"2025-03-17T00:00:00.000Z\", \"action\": \"shown\", \"count\": 320 },\n    { \"period\": \"2025-03-17T00:00:00.000Z\", \"action\": \"liked\", \"count\": 85 },\n    { \"period\": \"2025-03-17T00:00:00.000Z\", \"action\": \"disliked\", \"count\": 42 },\n    { \"period\": \"2025-03-24T00:00:00.000Z\", \"action\": \"shown\", \"count\": 410 },\n    { \"period\": \"2025-03-24T00:00:00.000Z\", \"action\": \"liked\", \"count\": 102 },\n    { \"period\": \"2025-03-24T00:00:00.000Z\", \"action\": \"disliked\", \"count\": 58 }\n  ],\n  \"totals\": {\n    \"shown\": 8920,\n    \"liked\": 2340,\n    \"disliked\": 1105\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Swipe Rates",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/engagement/swipe-rates?from=2025-01-01T00:00:00Z&to=2026-04-17T00:00:00Z",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "engagement", "swipe-rates"],
+              "query": [
+                { "key": "from", "value": "2025-01-01T00:00:00Z" },
+                { "key": "to", "value": "2026-04-17T00:00:00Z" }
+              ]
+            },
+            "description": "Aggregate swipe/like/dismiss counts and like rate across user profiles."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"totalSwiped\": 14520,\n  \"totalLiked\": 3870,\n  \"totalDismissed\": 10650,\n  \"likeRate\": 26.65\n}"
+            }
+          ]
+        },
+        {
+          "name": "Feed Depth",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/engagement/feed-depth",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "engagement", "feed-depth"]
+            },
+            "description": "Distribution of how deep users scroll in the property feed."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"distribution\": [\n    { \"bucket\": \"0\", \"count\": 210 },\n    { \"bucket\": \"1-10\", \"count\": 345 },\n    { \"bucket\": \"11-25\", \"count\": 289 },\n    { \"bucket\": \"26-50\", \"count\": 198 },\n    { \"bucket\": \"51-100\", \"count\": 124 },\n    { \"bucket\": \"100+\", \"count\": 77 }\n  ],\n  \"avgFeedIndex\": 28.43,\n  \"medianFeedIndex\": 18.0\n}"
+            }
+          ]
+        },
+        {
+          "name": "Dream Board Usage",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/engagement/dream-board",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "engagement", "dream-board"]
+            },
+            "description": "Dream board photo usage stats and category breakdown."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"totalPhotos\": 4231,\n  \"usersWithPhotos\": 687,\n  \"avgPhotosPerUser\": 6.16,\n  \"byCategory\": [\n    { \"category\": \"curb-appeal\", \"count\": 1120 },\n    { \"category\": \"the-heart\", \"count\": 980 },\n    { \"category\": \"the-sanctuary\", \"count\": 845 },\n    { \"category\": \"the-oasis\", \"count\": 742 },\n    { \"category\": \"the-character\", \"count\": 544 }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Preview Conversion",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/engagement/preview-conversion?from=2025-01-01T00:00:00Z&to=2026-04-17T00:00:00Z",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "engagement", "preview-conversion"],
+              "query": [
+                { "key": "from", "value": "2025-01-01T00:00:00Z" },
+                { "key": "to", "value": "2026-04-17T00:00:00Z" }
+              ]
+            },
+            "description": "Anonymous preview sessions vs signed-up users in the same period (approximate conversion)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"totalPreviewSessions\": 2890,\n  \"totalUsers\": 379,\n  \"conversionRate\": 13.11\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Agents",
+      "item": [
+        {
+          "name": "Agent Registrations (time-series)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/agents/registrations?from=2025-01-01T00:00:00Z&to=2026-04-17T00:00:00Z&granularity=month",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "agents", "registrations"],
+              "query": [
+                { "key": "from", "value": "2025-01-01T00:00:00Z" },
+                { "key": "to", "value": "2026-04-17T00:00:00Z" },
+                { "key": "granularity", "value": "month" }
+              ]
+            },
+            "description": "Agent registrations over time."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"buckets\": [\n    { \"period\": \"2025-01-01T00:00:00.000Z\", \"count\": 8 },\n    { \"period\": \"2025-02-01T00:00:00.000Z\", \"count\": 12 },\n    { \"period\": \"2025-03-01T00:00:00.000Z\", \"count\": 15 },\n    { \"period\": \"2025-04-01T00:00:00.000Z\", \"count\": 19 }\n  ],\n  \"total\": 54\n}"
+            }
+          ]
+        },
+        {
+          "name": "Agents by Brokerage",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/agents/brokerages",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "agents", "brokerages"]
+            },
+            "description": "Agent count grouped by brokerage firm."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"brokerages\": [\n    { \"brokerage\": \"Compass\", \"count\": 22 },\n    { \"brokerage\": \"Keller Williams\", \"count\": 18 },\n    { \"brokerage\": \"Coldwell Banker\", \"count\": 14 },\n    { \"brokerage\": \"RE/MAX\", \"count\": 11 },\n    { \"brokerage\": \"Unknown\", \"count\": 9 },\n    { \"brokerage\": \"eXp Realty\", \"count\": 7 },\n    { \"brokerage\": \"Century 21\", \"count\": 6 }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Client-Agent Ratio",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/agents/client-ratio",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "agents", "client-ratio"]
+            },
+            "description": "Overall client-to-agent ratio across the platform."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"totalAgents\": 87,\n  \"totalClients\": 342,\n  \"avgClientsPerAgent\": 3.93\n}"
+            }
+          ]
+        },
+        {
+          "name": "License Coverage by State",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/agents/license-coverage",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "agents", "license-coverage"]
+            },
+            "description": "Agent license count by US state."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"states\": [\n    { \"state\": \"MA\", \"count\": 34 },\n    { \"state\": \"NY\", \"count\": 21 },\n    { \"state\": \"CA\", \"count\": 18 },\n    { \"state\": \"FL\", \"count\": 15 },\n    { \"state\": \"TX\", \"count\": 12 },\n    { \"state\": \"CT\", \"count\": 8 },\n    { \"state\": \"NJ\", \"count\": 6 }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Client Status Distribution",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/agents/client-status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "agents", "client-status"]
+            },
+            "description": "Agent-client link status breakdown (pending/active/inactive)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"statuses\": [\n    { \"status\": \"active\", \"count\": 245 },\n    { \"status\": \"pending\", \"count\": 72 },\n    { \"status\": \"inactive\", \"count\": 25 }\n  ]\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Chains",
+      "item": [
+        {
+          "name": "Chain Status Breakdown",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/chains/status?from=2025-01-01T00:00:00Z&to=2026-04-17T00:00:00Z",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "chains", "status"],
+              "query": [
+                { "key": "from", "value": "2025-01-01T00:00:00Z" },
+                { "key": "to", "value": "2026-04-17T00:00:00Z" }
+              ]
+            },
+            "description": "Chain counts by status with average detection-to-confirmation time."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"statuses\": [\n    { \"status\": \"detected\", \"count\": 18 },\n    { \"status\": \"confirmed\", \"count\": 15 },\n    { \"status\": \"completed\", \"count\": 9 },\n    { \"status\": \"broken\", \"count\": 3 }\n  ],\n  \"detectionToConfirmationAvgDays\": 4.72\n}"
+            }
+          ]
+        },
+        {
+          "name": "Chain Types Distribution",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/chains/types",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "chains", "types"]
+            },
+            "description": "Chain count grouped by chain type."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"types\": [\n    { \"chainType\": \"swing-buyer\", \"count\": 19 },\n    { \"chainType\": \"simultaneous-close\", \"count\": 14 },\n    { \"chainType\": \"direct\", \"count\": 8 },\n    { \"chainType\": \"rotation\", \"count\": 4 }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Chain Size Distribution",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/chains/size",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "chains", "size"]
+            },
+            "description": "Average and distribution of participant counts per chain."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"avgParticipants\": 3.24,\n  \"distribution\": [\n    { \"size\": 2, \"count\": 18 },\n    { \"size\": 3, \"count\": 15 },\n    { \"size\": 4, \"count\": 8 },\n    { \"size\": 5, \"count\": 3 },\n    { \"size\": 6, \"count\": 1 }\n  ]\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Referrals",
+      "item": [
+        {
+          "name": "Referral Volume (time-series)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/referrals/volume?from=2025-01-01T00:00:00Z&to=2026-04-17T00:00:00Z&granularity=month",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "referrals", "volume"],
+              "query": [
+                { "key": "from", "value": "2025-01-01T00:00:00Z" },
+                { "key": "to", "value": "2026-04-17T00:00:00Z" },
+                { "key": "granularity", "value": "month" }
+              ]
+            },
+            "description": "Referral creation volume over time."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"buckets\": [\n    { \"period\": \"2025-01-01T00:00:00.000Z\", \"count\": 18 },\n    { \"period\": \"2025-02-01T00:00:00.000Z\", \"count\": 24 },\n    { \"period\": \"2025-03-01T00:00:00.000Z\", \"count\": 31 },\n    { \"period\": \"2025-04-01T00:00:00.000Z\", \"count\": 38 }\n  ],\n  \"total\": 111\n}"
+            }
+          ]
+        },
+        {
+          "name": "Referral Conversion",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/referrals/conversion",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "referrals", "conversion"]
+            },
+            "description": "All-time referral conversion rate and average days to convert."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"totalPending\": 62,\n  \"totalAccepted\": 136,\n  \"conversionRate\": 68.69,\n  \"avgDaysToConvert\": 3.45\n}"
+            }
+          ]
+        },
+        {
+          "name": "Referral Leaderboard",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/referrals/leaderboard?limit=5",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "referrals", "leaderboard"],
+              "query": [
+                { "key": "limit", "value": "5" }
+              ]
+            },
+            "description": "Top referrers by number of referrals sent. Default limit: 10, max: 100."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"leaders\": [\n    { \"userId\": \"auth0|abc123\", \"name\": \"Sarah Johnson\", \"email\": \"sarah@example.com\", \"count\": 14 },\n    { \"userId\": \"auth0|def456\", \"name\": \"Mike Chen\", \"email\": \"mike@example.com\", \"count\": 11 },\n    { \"userId\": \"auth0|ghi789\", \"name\": \"Emily Davis\", \"email\": \"emily@example.com\", \"count\": 9 },\n    { \"userId\": \"auth0|jkl012\", \"name\": \"James Wilson\", \"email\": \"james@example.com\", \"count\": 7 },\n    { \"userId\": \"auth0|mno345\", \"name\": \"Anna Park\", \"email\": \"anna@example.com\", \"count\": 6 }\n  ]\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Listings",
+      "item": [
+        {
+          "name": "Listings Overview",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/listings/overview",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "listings", "overview"]
+            },
+            "description": "Combined listing stats: active/inactive, by source type, price bands, agent vs organic."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"active\": 278,\n  \"inactive\": 34,\n  \"bySource\": [\n    { \"sourceType\": \"pocket\", \"count\": 198 },\n    { \"sourceType\": \"rentcast\", \"count\": 82 },\n    { \"sourceType\": \"manual\", \"count\": 32 }\n  ],\n  \"priceBands\": [\n    { \"label\": \"Under $200k\", \"count\": 28 },\n    { \"label\": \"$200k-$400k\", \"count\": 87 },\n    { \"label\": \"$400k-$600k\", \"count\": 104 },\n    { \"label\": \"$600k-$800k\", \"count\": 52 },\n    { \"label\": \"$800k-$1M\", \"count\": 28 },\n    { \"label\": \"$1M+\", \"count\": 13 }\n  ],\n  \"agentListed\": 156,\n  \"organic\": 156\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Network Map",
+      "description": "Endpoints powering the Kovera Network Map Portal (see PRD v1.0, April 2025).\n\nAll endpoints live under `/api/analytics/network/` and are **publicly accessible** — no auth, no role gating. Full addresses, user IDs, and edge metadata are returned to every caller.\n\nNodes use normalized blank-plane `(x, y)` coordinates (0–1000 range) derived from server-side geocoding.",
+      "item": [
+        {
+          "name": "Generate / Get Network Graph",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/network/graph?excludeInternal=true&refresh=false",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "network", "graph"],
+              "query": [
+                { "key": "excludeInternal", "value": "true", "description": "Drop nodes for user IDs in the internal filter list" },
+                { "key": "refresh", "value": "false", "description": "If true, bust the geocode cache and re-resolve addresses" }
+              ]
+            },
+            "description": "Returns the full network graph: nodes (user homes, seeded listings, dream addresses, pure buyers) and edges (likes, dream links, chain-ready edges).\n\nIncludes addresses, user IDs, edge metadata, and normalized `(x, y)` positions."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"generatedAt\": \"2026-04-22T14:10:22.000Z\",\n  \"nodeCount\": 63,\n  \"edgeCount\": 41,\n  \"nodes\": [\n    {\n      \"id\": \"user-45036881\",\n      \"type\": \"user_home\",\n      \"userId\": \"45036881\",\n      \"label\": \"A\",\n      \"address\": \"5 Marlboro Street #2, Newburyport, MA\",\n      \"x\": 412.3,\n      \"y\": 288.7,\n      \"incomingLikes\": 4,\n      \"sharedAddressGroup\": \"5 Marlboro Street, Newburyport, MA\",\n      \"doubleIntent\": false\n    },\n    {\n      \"id\": \"seeded-11\",\n      \"type\": \"seeded_listing\",\n      \"label\": \"S2\",\n      \"address\": \"61 Spofford St, Newburyport, MA\",\n      \"x\": 398.1,\n      \"y\": 301.4,\n      \"totalLikes\": 3\n    },\n    {\n      \"id\": \"dream-address-jejmdr\",\n      \"type\": \"dream_address\",\n      \"subtype\": \"dream_anchor\",\n      \"label\": \"S25\",\n      \"address\": \"12 High Rd, Newbury, MA\",\n      \"x\": 445.6,\n      \"y\": 312.0\n    },\n    {\n      \"id\": \"user-54795286\",\n      \"type\": \"pure_buyer\",\n      \"userId\": \"54795286\",\n      \"x\": 502.0,\n      \"y\": 276.3,\n      \"dreamAddress\": \"76 High St, Newburyport, MA\"\n    }\n  ],\n  \"edges\": [\n    { \"id\": \"e1\", \"from\": \"user-54416778\", \"to\": \"user-45036881\", \"type\": \"like_user_home\" },\n    { \"id\": \"e2\", \"from\": \"user-45036881\", \"to\": \"dream-address-jejmdr\", \"type\": \"dream\" },\n    { \"id\": \"e3\", \"from\": \"user-54416778\", \"to\": \"user-45036881\", \"type\": \"chain_ready\", \"chainId\": \"chain-7\" }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Network Stats (summary)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/network/stats",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "network", "stats"]
+            },
+            "description": "Lightweight summary for the Network Map header strip: node counts by type, edge counts by type, chain count, cluster count, and staleness indicator."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"generatedAt\": \"2026-04-22T14:10:22.000Z\",\n  \"lastRefreshAgeSeconds\": 42,\n  \"nodes\": {\n    \"userHome\": 28,\n    \"seededListing\": 22,\n    \"dreamAddress\": 7,\n    \"pureBuyer\": 6,\n    \"total\": 63\n  },\n  \"edges\": {\n    \"likeListing\": 24,\n    \"likeUserHome\": 8,\n    \"dream\": 7,\n    \"chainReady\": 2,\n    \"total\": 41\n  },\n  \"chains\": {\n    \"active\": 2,\n    \"swaps\": 1,\n    \"rotations\": 0,\n    \"directs\": 1\n  },\n  \"demandClusters\": 2,\n  \"addressCycles\": 5,\n  \"filteredInternalUsers\": 4,\n  \"geocodeSuccessRate\": 0.986\n}"
+            }
+          ]
+        },
+        {
+          "name": "Active Chains",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/network/chains?minLength=2",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "network", "chains"],
+              "query": [
+                { "key": "minLength", "value": "2", "description": "Minimum chain length to include" }
+              ]
+            },
+            "description": "Active chains detected by the chain engine (quickChainCheck / deepScanChains). Chain types: `direct`, `swap`, `chain`, `rotation`.\n\nReturns full participant detail including names and addresses."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"chains\": [\n    {\n      \"chainId\": \"chain-7\",\n      \"chainType\": \"swap\",\n      \"length\": 2,\n      \"readinessScore\": 0.78,\n      \"orderedPath\": [\"user-54416778\", \"user-45036881\"],\n      \"participants\": [\n        { \"userId\": \"54416778\", \"name\": \"Jane Doe\", \"role\": \"head\", \"address\": \"3 Union St, Newburyport, MA\", \"hasAgent\": true, \"optedIn\": true },\n        { \"userId\": \"45036881\", \"name\": \"John Smith\", \"role\": \"tail\", \"address\": \"5 Marlboro St #2, Newburyport, MA\", \"hasAgent\": false, \"optedIn\": true }\n      ]\n    },\n    {\n      \"chainId\": \"chain-8\",\n      \"chainType\": \"chain\",\n      \"length\": 3,\n      \"readinessScore\": 0.55,\n      \"orderedPath\": [\"user-54417559\", \"user-45036881\", \"seeded-114\"],\n      \"participants\": [\n        { \"userId\": \"54417559\", \"name\": \"Ella Park\", \"role\": \"head\", \"address\": \"1 Marlboro St, Newburyport, MA\", \"hasAgent\": true, \"optedIn\": true },\n        { \"userId\": \"45036881\", \"name\": \"John Smith\", \"role\": \"middle\", \"address\": \"5 Marlboro St #2, Newburyport, MA\", \"hasAgent\": false, \"optedIn\": true },\n        { \"userId\": \"seeded-114\", \"name\": \"Seeded Listing\", \"role\": \"tail\", \"address\": \"5 Marlboro Street, Newburyport, MA\", \"hasAgent\": false, \"optedIn\": false }\n      ]\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Demand Clusters (3+ likes on same listing)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/network/clusters?minSize=3",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "network", "clusters"],
+              "query": [
+                { "key": "minSize", "value": "3", "description": "Minimum number of likers to count as a cluster (PRD default: 3)" }
+              ]
+            },
+            "description": "Listings (or user homes) that have received likes from `minSize` or more distinct users. Powers the 'halo ring' visual treatment on the map."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"clusters\": [\n    {\n      \"targetNodeId\": \"seeded-11\",\n      \"targetType\": \"seeded_listing\",\n      \"label\": \"S2\",\n      \"likerCount\": 3,\n      \"likers\": [\"user-54919836\", \"user-55979307\", \"user-56180400\"]\n    },\n    {\n      \"targetNodeId\": \"seeded-124\",\n      \"targetType\": \"seeded_listing\",\n      \"label\": \"S16\",\n      \"likerCount\": 3,\n      \"likers\": [\"user-54919836\", \"user-56180400\", \"user-56332480\"]\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Address Cycles (shared-address groups)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/network/address-cycles",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "network", "address-cycles"]
+            },
+            "description": "Groups of 2+ nodes sharing the same normalized physical address. Powers the 'gold border' treatment.\n\nAddress normalization strips unit numbers, casing, and formatting variations."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"cycles\": [\n    {\n      \"normalizedAddress\": \"5 marlboro st, newburyport, ma\",\n      \"displayAddress\": \"5 Marlboro Street, Newburyport, MA\",\n      \"nodeIds\": [\"user-45036881\", \"user-54437215\", \"seeded-114\"],\n      \"labels\": [\"A\", \"C\", \"S14\"]\n    },\n    {\n      \"normalizedAddress\": \"1 marlboro st, newburyport, ma\",\n      \"displayAddress\": \"1 Marlboro Street, Newburyport, MA\",\n      \"nodeIds\": [\"user-54417559\", \"user-55253273\"],\n      \"labels\": [\"E\", \"O\"]\n    },\n    {\n      \"normalizedAddress\": \"21 robin rd, west newbury, ma\",\n      \"displayAddress\": \"21 Robin Rd, West Newbury, MA\",\n      \"nodeIds\": [\"user-54685532\", \"user-55481807\"],\n      \"labels\": [\"I\", \"R\"]\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "Node Detail (click-through)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/network/node/user-45036881",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "network", "node", "user-45036881"]
+            },
+            "description": "Sidebar detail for a clicked node. Returns full detail for any node."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"id\": \"user-45036881\",\n  \"type\": \"user_home\",\n  \"label\": \"A\",\n  \"address\": \"5 Marlboro Street #2, Newburyport, MA\",\n  \"userId\": \"45036881\",\n  \"name\": \"John Smith\",\n  \"incomingLikes\": 4,\n  \"outgoingLikes\": 2,\n  \"dreamAddresses\": [\"49 Marlboro Street, Newburyport, MA\", \"14 Marlboro Street, Newburyport, MA\"],\n  \"inChains\": [\"chain-7\", \"chain-8\"],\n  \"sharedAddressGroup\": \"5 Marlboro Street, Newburyport, MA\",\n  \"doubleIntent\": false\n}"
+            }
+          ]
+        },
+        {
+          "name": "Export network_map.md",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/network/export",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "network", "export"]
+            },
+            "description": "Downloads the canonical network_map.md snapshot.\n\nResponse: `Content-Type: text/markdown`, `Content-Disposition: attachment; filename=network_map.md`.\n\nFormat matches the existing hand-maintained `network_map.md` in the repo root: Home Nodes, Seeded Listing Nodes, Dream Address Nodes, Edges, Duplicate Addresses, Notable Patterns, Users With Dream Home Only."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [
+                { "key": "Content-Type", "value": "text/markdown; charset=utf-8" },
+                { "key": "Content-Disposition", "value": "attachment; filename=network_map.md" }
+              ],
+              "body": "# Network Map — Production Database\n\n## Home Nodes (User Current Addresses)\n\n| Label | Address | User ID |\n|-------|---------|---------|\n| A | 5 Marlboro Street #2, Newburyport, MA | 45036881 |\n| B | 3 Union St, Newburyport, MA | 54416778 |\n... (truncated)"
+            }
+          ]
+        },
+        {
+          "name": "Internal User Filter — List",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/network/internal-users",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "network", "internal-users"]
+            },
+            "description": "Returns the current list of user IDs excluded from network map output (Kovera team test accounts)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"internalUserIds\": [\"auth0|omsingh\", \"auth0|ravipawar\", \"auth0|kovera-demo\", \"auth0|kovera-test\"],\n  \"updatedAt\": \"2026-04-18T09:22:14.000Z\",\n  \"updatedBy\": \"auth0|omsingh\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Internal User Filter — Update",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"internalUserIds\": [\"auth0|omsingh\", \"auth0|ravipawar\", \"auth0|kovera-demo\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/network/internal-users",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "network", "internal-users"]
+            },
+            "description": "Replace the internal user filter list.\n\nPost-write, the next call to `/graph` or `/stats` will exclude these users."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"internalUserIds\": [\"auth0|omsingh\", \"auth0|ravipawar\", \"auth0|kovera-demo\"],\n  \"updatedAt\": \"2026-04-22T14:12:00.000Z\",\n  \"updatedBy\": \"auth0|ravipawar\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Refresh Geocode Cache",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/api/analytics/network/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "analytics", "network", "refresh"]
+            },
+            "description": "Forces a fresh pull from the Kovera DB + re-geocodes all addresses via Google Geocoding API, bypassing the 7-day cache.\n\nUse when addresses were recently corrected or when cache TTL feels stale."
+          },
+          "response": [
+            {
+              "name": "202 Accepted",
+              "status": "Accepted",
+              "code": 202,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"status\": \"rebuilding\",\n  \"jobId\": \"refresh-2026-04-22-1412\",\n  \"estimatedSeconds\": 4\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
