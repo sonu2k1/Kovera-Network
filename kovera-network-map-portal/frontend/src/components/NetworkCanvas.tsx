@@ -8,8 +8,31 @@ import { useNetworkContext } from '../context/NetworkContext';
 import { useCanvas } from '../hooks/useCanvas';
 import { Plus, Minus, Maximize, MousePointer2 } from 'lucide-react';
 
+/** Control point for smooth arcs between chain stops (address → address feel). */
+function chainArcControl(
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+  bendScale = 0.26
+) {
+  const midX = (a.x + b.x) / 2;
+  const midY = (a.y + b.y) / 2;
+  return {
+    cpX: midX + (b.y - a.y) * bendScale,
+    cpY: midY - (b.x - a.x) * bendScale
+  };
+}
+
 const NetworkCanvas: React.FC = () => {
-  const { graphData, selectedNode, setSelectedNode, activeChain, filter, theme, clusters, addressCycles } = useNetworkContext();
+  const {
+    graphData,
+    selectedNode,
+    setSelectedNode,
+    activeChain,
+    filter,
+    theme,
+    chainStatusFilter,
+    privacyMode
+  } = useNetworkContext();
   
   const colors = useMemo(() => {
     if (theme === 'light') {
@@ -58,9 +81,9 @@ const NetworkCanvas: React.FC = () => {
     
     // Hit Detection for Hover
     const worldPos = screenToWorld(e.clientX, e.clientY);
-    const hit = graphData?.nodes?.find(n => {
-      const dx = n.x - worldPos.x;
-      const dy = n.y - worldPos.y;
+    const hit = graphData?.nodes?.find((n: any) => {
+      const dx = (n.drawX ?? n.x) - worldPos.x;
+      const dy = (n.drawY ?? n.y) - worldPos.y;
       const collisionRadius = 15; // Slightly larger for easier hit
       return Math.sqrt(dx * dx + dy * dy) < collisionRadius;
     });
@@ -72,40 +95,102 @@ const NetworkCanvas: React.FC = () => {
 
   const animationRef = useRef<number>(0);
   const offsetRef = useRef<number>(0);
+  const mapImageRef = useRef<HTMLImageElement | null>(null);
+  const [mapReady, setMapReady] = React.useState(false);
 
-  // Build sets for cluster/cycle node IDs
-  const clusterNodeIds = useMemo(() => {
+  const toNodeType = (node: any) => String(node.type || '').toLowerCase();
+  const isUserHomeLike = (node: any) => ['user_home', 'swapper', 'pure_seller'].includes(toNodeType(node));
+  const isDreamLike = (node: any) => ['dream_address', 'dream_anchor'].includes(toNodeType(node));
+  const isBuyerLike = (node: any) => ['pure_buyer'].includes(toNodeType(node));
+  const isOffMarketListing = (node: any) =>
+    toNodeType(node) === 'pocket_listing' ||
+    (toNodeType(node) === 'seeded_listing' && String(node.listingCategory || node.source || '').toLowerCase() === 'off_market');
+  const isPublicListing = (node: any) =>
+    toNodeType(node) === 'public_listing' ||
+    (toNodeType(node) === 'seeded_listing' && !isOffMarketListing(node));
+  const isDreamAnchor = (node: any) => toNodeType(node) === 'dream_anchor' || (toNodeType(node) === 'dream_address' && node.dreamHomeSource === 'dream_anchor');
+
+  const chainMetrics = useMemo(() => {
+    const outgoingDreamSources = new Set(
+      (graphData?.edges || [])
+        .filter((e: any) => e.type === 'DREAM')
+        .map((e: any) => e.source)
+    );
+    return { outgoingDreamSources };
+  }, [graphData]);
+
+  const nodeIdsInAnyChain = useMemo(() => {
     const ids = new Set<string>();
-    clusters.forEach(c => {
-      ids.add(c.targetNodeId);
-      c.likers?.forEach((l: string) => ids.add(l));
+    (graphData?.chains || []).forEach((chain: any) => {
+      (chain.path || []).forEach((id: string) => ids.add(id));
     });
     return ids;
-  }, [clusters]);
+  }, [graphData]);
 
-  const cycleNodeIds = useMemo(() => {
-    const ids = new Set<string>();
-    addressCycles.forEach(c => {
-      c.nodeIds?.forEach((id: string) => ids.add(id));
+  const nodeDrawData = useMemo(() => {
+    if (!graphData?.nodes) return [];
+    const areaBuckets = new Map<string, number>();
+    return graphData.nodes.map((node: any) => {
+      const bucketKey = node.lat !== undefined && node.lng !== undefined
+        ? `${node.lat.toFixed(2)}:${node.lng.toFixed(2)}`
+        : `nogeo:${node.id}`;
+      const index = areaBuckets.get(bucketKey) || 0;
+      areaBuckets.set(bucketKey, index + 1);
+      const angle = ((node.id?.length || 1) * 73 + index * 47) % 360;
+      const radius = Math.min(20, index * 2.2);
+      const dx = Math.cos((angle * Math.PI) / 180) * radius;
+      const dy = Math.sin((angle * Math.PI) / 180) * radius;
+      return { ...node, drawX: (node.x || 0) + dx, drawY: (node.y || 0) + dy };
     });
-    return ids;
-  }, [addressCycles]);
+  }, [graphData]);
+
+  const nodePosById = useMemo(() => {
+    const m = new Map<string, { x: number; y: number }>();
+    nodeDrawData.forEach((n: any) => {
+      m.set(n.id, { x: n.drawX ?? n.x, y: n.drawY ?? n.y });
+    });
+    return m;
+  }, [nodeDrawData]);
+
+  const getMaskedLabel = (node: any) => {
+    const raw = String(node.label || node.name || '').trim();
+    if (!raw || raw.length <= 2) return 'Unknown';
+    if (raw === raw.toUpperCase() && raw.length <= 3) return 'Unknown';
+    if (privacyMode === 'public') {
+      if (isBuyerLike(node)) return 'Buyer';
+      if (isUserHomeLike(node)) return 'Home Owner';
+      if (isOffMarketListing(node) || isPublicListing(node)) return isOffMarketListing(node) ? 'Pocket Listing' : 'Public Listing';
+      if (isDreamLike(node)) return 'Dream Anchor';
+    }
+    return raw;
+  };
 
   // Filtered Data
   const filteredNodes = useMemo(() => {
-    if (!graphData?.nodes) return [];
-    if (filter === 'All') return graphData.nodes;
-    if (filter === 'User Homes') return graphData.nodes.filter(n => n.type === 'user_home');
-    if (filter === 'Seeded Listings') return graphData.nodes.filter(n => n.type === 'seeded_listing');
-    if (filter === 'Dream Homes') return graphData.nodes.filter(n => n.type === 'dream_address');
-    if (filter === 'Pure Buyers') return graphData.nodes.filter(n => n.type === 'pure_buyer');
-    if (filter === 'Chains') return graphData.nodes.filter(n => {
-      return graphData.chains?.some(c => c.path?.includes(n.id));
-    });
-    if (filter === 'Clusters') return graphData.nodes.filter(n => clusterNodeIds.has(n.id));
-    if (filter === 'Address Cycles') return graphData.nodes.filter(n => cycleNodeIds.has(n.id));
-    return graphData.nodes;
-  }, [graphData, filter, clusterNodeIds, cycleNodeIds]);
+    if (!nodeDrawData.length) return [];
+    let nodes = nodeDrawData;
+
+    if (filter === 'User Homes') nodes = nodes.filter(isUserHomeLike);
+    else if (filter === 'Public Listings') nodes = nodes.filter(isPublicListing);
+    else if (filter === 'Off-Market Properties') nodes = nodes.filter(isOffMarketListing);
+    else if (filter === 'Pure Buyers') nodes = nodes.filter(isBuyerLike);
+    else if (filter === 'Swappers') nodes = nodes.filter(n => toNodeType(n) === 'swapper' || (toNodeType(n) === 'user_home' && chainMetrics.outgoingDreamSources.has(n.id)));
+    else if (filter === 'Pure Sellers') nodes = nodes.filter(n => toNodeType(n) === 'pure_seller' || (toNodeType(n) === 'user_home' && !chainMetrics.outgoingDreamSources.has(n.id)));
+    else if (filter === 'Dream Anchors') nodes = nodes.filter(isDreamAnchor);
+
+    if (chainStatusFilter === 1) nodes = nodes.filter(n => !nodeIdsInAnyChain.has(n.id));
+    if (chainStatusFilter === 2) {
+      nodes = nodes.filter(n =>
+        nodeIdsInAnyChain.has(n.id) &&
+        !(graphData?.chains || []).some((c: any) => c.isReady && c.path?.includes(n.id))
+      );
+    }
+    if (chainStatusFilter === 3) {
+      nodes = nodes.filter(n => (graphData?.chains || []).some((c: any) => c.isReady && c.path?.includes(n.id)));
+    }
+
+    return nodes;
+  }, [nodeDrawData, filter, chainStatusFilter, graphData, nodeIdsInAnyChain, chainMetrics]);
 
   const filteredEdges = useMemo(() => {
     if (!graphData?.edges) return [];
@@ -113,6 +198,41 @@ const NetworkCanvas: React.FC = () => {
     const nodeIds = new Set(filteredNodes.map(n => n.id));
     return graphData.edges.filter(e => nodeIds.has(e.source) && nodeIds.has(e.target));
   }, [graphData, filteredNodes]);
+
+  const staticMapUrl = useMemo(() => {
+    const geoNodes = (filteredNodes.length ? filteredNodes : nodeDrawData).filter(
+      (n: any) => n.lat !== undefined && n.lng !== undefined
+    );
+    if (geoNodes.length < 2) return null;
+    const lats = geoNodes.map((n: any) => Number(n.lat));
+    const lngs = geoNodes.map((n: any) => Number(n.lng));
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+    const minLng = Math.min(...lngs);
+    const maxLng = Math.max(...lngs);
+    if (![minLat, maxLat, minLng, maxLng].every(Number.isFinite)) return null;
+    const bbox = [minLng, minLat, maxLng, maxLat].join(',');
+    return `https://staticmap.openstreetmap.de/staticmap.php?bbox=${bbox}&size=1200x800&maptype=mapnik`;
+  }, [filteredNodes, nodeDrawData]);
+
+  useEffect(() => {
+    if (!staticMapUrl) {
+      mapImageRef.current = null;
+      setMapReady(false);
+      return;
+    }
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      mapImageRef.current = img;
+      setMapReady(true);
+    };
+    img.onerror = () => {
+      mapImageRef.current = null;
+      setMapReady(false);
+    };
+    img.src = staticMapUrl;
+  }, [staticMapUrl]);
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -128,6 +248,13 @@ const NetworkCanvas: React.FC = () => {
     ctx.fillStyle = colors.bg;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+    if (privacyMode === 'private' && mapReady && mapImageRef.current) {
+      ctx.save();
+      ctx.globalAlpha = theme === 'dark' ? 0.2 : 0.28;
+      ctx.drawImage(mapImageRef.current, 0, 0, canvas.width, canvas.height);
+      ctx.restore();
+    }
+
     // Subtle Dot Grid
     ctx.save();
     ctx.translate(viewState.offset.x % (40 * viewState.scale), viewState.offset.y % (40 * viewState.scale));
@@ -141,13 +268,65 @@ const NetworkCanvas: React.FC = () => {
     }
     ctx.restore();
 
+    // Geographic density underlay (map-like layer)
+    const geoNodes = filteredNodes.filter((n: any) => n.lat !== undefined && n.lng !== undefined);
+    if (privacyMode === 'private' && geoNodes.length) {
+      ctx.save();
+      ctx.translate(viewState.offset.x, viewState.offset.y);
+      ctx.scale(viewState.scale, viewState.scale);
+      geoNodes.forEach((node: any) => {
+        const x = node.drawX ?? node.x;
+        const y = node.drawY ?? node.y;
+        const gradient = ctx.createRadialGradient(x, y, 2, x, y, 32);
+        gradient.addColorStop(0, 'rgba(34, 201, 138, 0.18)');
+        gradient.addColorStop(1, 'rgba(34, 201, 138, 0)');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(x, y, 32, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.restore();
+    }
+
     // Apply View Transform
     ctx.save();
     ctx.translate(viewState.offset.x, viewState.offset.y);
     ctx.scale(viewState.scale, viewState.scale);
 
+    const hasChainOverlay = (graphData.chains || []).some((c: any) => (c.path || []).length >= 2);
+
+    // Move chains — simple yellow connector lines
+    (graphData.chains || []).forEach((chain: any, ci: number) => {
+      const pathIds: string[] = chain.path || [];
+      if (pathIds.length < 2) return;
+      const isActive = activeChain?.id === chain.id;
+
+      for (let i = 0; i < pathIds.length - 1; i++) {
+        const pa = nodePosById.get(pathIds[i]);
+        const pb = nodePosById.get(pathIds[i + 1]);
+        if (!pa || !pb) continue;
+
+        const bend = isActive ? 0.3 : 0.26;
+        const { cpX, cpY } = chainArcControl(pa, pb, bend);
+
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        ctx.beginPath();
+        ctx.moveTo(pa.x, pa.y);
+        ctx.quadraticCurveTo(cpX, cpY, pb.x, pb.y);
+        ctx.strokeStyle = '#FACC15';
+        ctx.lineWidth = isActive ? 4.5 : 3;
+        ctx.globalAlpha = 1;
+        ctx.setLineDash([]);
+        ctx.shadowBlur = 0;
+        ctx.stroke();
+      }
+    });
+
     // Focus Logic
     const focusedId = selectedNode?.id || hoveredNode?.id;
+    const acPath: string[] = activeChain?.path || [];
     const connectedEdges = focusedId ? filteredEdges.filter(e => e.source === focusedId || e.target === focusedId) : [];
     const connectedNodeIds = new Set([
       ...(focusedId ? [focusedId] : []),
@@ -157,25 +336,31 @@ const NetworkCanvas: React.FC = () => {
     // Draw Edges (Pass 1: Secondary/Background)
     filteredEdges.forEach(edge => {
       const isFocused = (focusedId && (edge.source === focusedId || edge.target === focusedId)) ||
-                       (activeChain && activeChain.path.includes(edge.source) && activeChain.path.includes(edge.target));
+                       (activeChain && acPath.includes(edge.source) && acPath.includes(edge.target));
       
       if (isFocused) return; // Skip focused edges for now
 
-      const source = graphData.nodes.find(n => n.id === edge.source);
-      const target = graphData.nodes.find(n => n.id === edge.target);
+      const source = filteredNodes.find(n => n.id === edge.source);
+      const target = filteredNodes.find(n => n.id === edge.target);
       if (!source || !target) return;
 
       ctx.beginPath();
-      const midX = (source.x + target.x) / 2;
-      const midY = (source.y + target.y) / 2;
-      const cpX = midX + (target.y - source.y) * 0.18;
-      const cpY = midY - (target.x - source.x) * 0.18;
-      ctx.moveTo(source.x, source.y);
-      ctx.quadraticCurveTo(cpX, cpY, target.x, target.y);
+      const sx = source.drawX ?? source.x;
+      const sy = source.drawY ?? source.y;
+      const tx = target.drawX ?? target.x;
+      const ty = target.drawY ?? target.y;
+      const midX = (sx + tx) / 2;
+      const midY = (sy + ty) / 2;
+      const cpX = midX + (ty - sy) * 0.18;
+      const cpY = midY - (tx - sx) * 0.18;
+      ctx.moveTo(sx, sy);
+      ctx.quadraticCurveTo(cpX, cpY, tx, ty);
 
-      ctx.strokeStyle = edge.type === 'DREAM' ? colors.pink : colors.blue;
-      ctx.lineWidth = 0.5;
-      ctx.globalAlpha = focusedId ? 0.05 : 0.15;
+      const isUserToUser = isUserHomeLike(source) && isUserHomeLike(target);
+      const isUserToListing = isUserHomeLike(source) && (isPublicListing(target) || isOffMarketListing(target));
+      ctx.strokeStyle = edge.type === 'DREAM' ? colors.pink : isUserToUser ? colors.amber : (isUserToListing ? colors.green : colors.blue);
+      ctx.lineWidth = isUserToUser ? 1.1 : 0.8;
+      ctx.globalAlpha = focusedId ? 0.04 : hasChainOverlay ? 0.06 : 0.14;
       if (edge.type === 'DREAM') ctx.setLineDash([4, 4]);
       ctx.stroke();
       ctx.setLineDash([]);
@@ -183,29 +368,33 @@ const NetworkCanvas: React.FC = () => {
 
     // Draw Edges (Pass 2: Global/Ready Chains)
     filteredEdges.forEach(edge => {
-      const isFocusedChainEdge = activeChain && 
-        activeChain.path.indexOf(edge.source) !== -1 && 
-        activeChain.path.indexOf(edge.target) === activeChain.path.indexOf(edge.source) + 1;
+      const isFocusedChainEdge = activeChain &&
+        acPath.indexOf(edge.source) !== -1 &&
+        acPath.indexOf(edge.target) === acPath.indexOf(edge.source) + 1;
 
-      const isAnyReadyChainEdge = graphData.chains?.some((c: any) => 
-        c.isReady && 
-        c.path.indexOf(edge.source) !== -1 && 
-        c.path.indexOf(edge.target) === c.path.indexOf(edge.source) + 1
+      const isAnyReadyChainEdge = graphData.chains?.some((c: any) =>
+        c.isReady &&
+        c.path?.indexOf(edge.source) !== -1 &&
+        c.path?.indexOf(edge.target) === c.path.indexOf(edge.source) + 1
       );
 
       if (!isFocusedChainEdge && !isAnyReadyChainEdge) return;
 
-      const source = graphData.nodes.find(n => n.id === edge.source);
-      const target = graphData.nodes.find(n => n.id === edge.target);
+      const source = filteredNodes.find(n => n.id === edge.source);
+      const target = filteredNodes.find(n => n.id === edge.target);
       if (!source || !target) return;
 
       ctx.beginPath();
-      const midX = (source.x + target.x) / 2;
-      const midY = (source.y + target.y) / 2;
-      const cpX = midX + (target.y - source.y) * 0.18;
-      const cpY = midY - (target.x - source.x) * 0.18;
-      ctx.moveTo(source.x, source.y);
-      ctx.quadraticCurveTo(cpX, cpY, target.x, target.y);
+      const sx = source.drawX ?? source.x;
+      const sy = source.drawY ?? source.y;
+      const tx = target.drawX ?? target.x;
+      const ty = target.drawY ?? target.y;
+      const midX = (sx + tx) / 2;
+      const midY = (sy + ty) / 2;
+      const cpX = midX + (ty - sy) * 0.18;
+      const cpY = midY - (tx - sx) * 0.18;
+      ctx.moveTo(sx, sy);
+      ctx.quadraticCurveTo(cpX, cpY, tx, ty);
 
       if (isFocusedChainEdge) {
         ctx.strokeStyle = colors.amber;
@@ -229,17 +418,21 @@ const NetworkCanvas: React.FC = () => {
     // Draw Edges (Pass 3: Direct User Selection/Hover Focus)
     if (focusedId) {
       connectedEdges.forEach(edge => {
-        const source = graphData.nodes.find(n => n.id === edge.source);
-        const target = graphData.nodes.find(n => n.id === edge.target);
+        const source = filteredNodes.find(n => n.id === edge.source);
+        const target = filteredNodes.find(n => n.id === edge.target);
         if (!source || !target) return;
 
         ctx.beginPath();
-        const midX = (source.x + target.x) / 2;
-        const midY = (source.y + target.y) / 2;
-        const cpX = midX + (target.y - source.y) * 0.18;
-        const cpY = midY - (target.x - source.x) * 0.18;
-        ctx.moveTo(source.x, source.y);
-        ctx.quadraticCurveTo(cpX, cpY, target.x, target.y);
+        const sx = source.drawX ?? source.x;
+        const sy = source.drawY ?? source.y;
+        const tx = target.drawX ?? target.x;
+        const ty = target.drawY ?? target.y;
+        const midX = (sx + tx) / 2;
+        const midY = (sy + ty) / 2;
+        const cpX = midX + (ty - sy) * 0.18;
+        const cpY = midY - (tx - sx) * 0.18;
+        ctx.moveTo(sx, sy);
+        ctx.quadraticCurveTo(cpX, cpY, tx, ty);
 
         ctx.strokeStyle = edge.type === 'DREAM' ? colors.pink : colors.blue;
         ctx.lineWidth = 2.5;
@@ -248,6 +441,17 @@ const NetworkCanvas: React.FC = () => {
         ctx.shadowColor = ctx.strokeStyle as string;
         ctx.stroke();
         ctx.shadowBlur = 0;
+
+        // "Shoot out" pulse particles along focused edges.
+        const t = ((offsetRef.current % 100) / 100);
+        const qx = (1 - t) * (1 - t) * sx + 2 * (1 - t) * t * cpX + t * t * tx;
+        const qy = (1 - t) * (1 - t) * sy + 2 * (1 - t) * t * cpY + t * t * ty;
+        ctx.beginPath();
+        ctx.arc(qx, qy, 2.2, 0, Math.PI * 2);
+        ctx.fillStyle = edge.type === 'DREAM' ? colors.pink : colors.amber;
+        ctx.globalAlpha = 0.95;
+        ctx.fill();
+        ctx.globalAlpha = 1;
       });
     }
 
@@ -257,17 +461,17 @@ const NetworkCanvas: React.FC = () => {
       const isHovered = hoveredNode && hoveredNode.id === node.id;
       const isFocused = isSelected || isHovered;
       const isInNeighborhood = focusedId ? connectedNodeIds.has(node.id) : true;
-      const isChainActive = activeChain && activeChain.path.includes(node.id);
+      const isChainActive = activeChain && (activeChain.path || []).includes(node.id);
       
       const baseRadius = 8;
       let radius = baseRadius + (node.incomeCount || 0) * 1.5;
-      if (node.type === 'dream_address') {
+      if (isDreamLike(node)) {
         radius = node.dreamHomeSource === 'dream_anchor' ? 11 : 7;
       }
       if (isFocused) radius *= 1.2;
 
       ctx.save();
-      ctx.translate(node.x, node.y);
+      ctx.translate(node.drawX ?? node.x, node.drawY ?? node.y);
       ctx.globalAlpha = (focusedId && !isInNeighborhood) ? 0.15 : 1;
 
       // Pulse for active entities
@@ -283,12 +487,12 @@ const NetworkCanvas: React.FC = () => {
 
       // Node Shape
       ctx.beginPath();
-      if (node.type === 'user_home' || node.type === 'seeded_listing') {
+      if (isUserHomeLike(node) || isPublicListing(node) || isOffMarketListing(node)) {
         ctx.arc(0, 0, radius, 0, Math.PI * 2);
-      } else if (node.type === 'dream_address') {
+      } else if (isDreamLike(node)) {
         ctx.rotate(Math.PI / 4);
         ctx.rect(-radius, -radius, radius * 2, radius * 2);
-      } else if (node.type === 'pure_buyer') {
+      } else if (isBuyerLike(node)) {
         for (let i = 0; i < 5; i++) {
           const angle = (Math.PI * 2 * i) / 5 - Math.PI / 2;
           ctx.lineTo(radius * 1.2 * Math.cos(angle), radius * 1.2 * Math.sin(angle));
@@ -296,7 +500,13 @@ const NetworkCanvas: React.FC = () => {
         ctx.closePath();
       }
 
-      const color = colors[node.type === 'user_home' ? 'blue' : node.type === 'seeded_listing' ? 'green' : node.type === 'dream_address' ? 'pink' : 'amber'];
+      const color = isUserHomeLike(node)
+        ? (chainMetrics.outgoingDreamSources.has(node.id) ? colors.gold : colors.blue)
+        : (isPublicListing(node) || isOffMarketListing(node))
+          ? (isOffMarketListing(node) ? '#2DD4BF' : colors.green)
+          : isDreamLike(node)
+            ? colors.pink
+            : colors.amber;
       ctx.fillStyle = color;
       ctx.fill();
       ctx.strokeStyle = (theme === 'dark' && !isFocused) ? 'rgba(255,255,255,0.2)' : color;
@@ -304,12 +514,12 @@ const NetworkCanvas: React.FC = () => {
       ctx.stroke();
 
       // Labels: Semantic Zoom
-      const showLabel = isFocused || (viewState.scale > 0.8) || (viewState.scale > 0.4 && node.type === 'user_home');
+      const showLabel = isFocused || (viewState.scale > 0.8) || (viewState.scale > 0.4 && isUserHomeLike(node));
       if (showLabel) {
         ctx.fillStyle = isFocused ? colors.text : colors.textMuted;
         ctx.font = `${isFocused ? 'bold' : ''} 10px ${theme === 'light' ? 'Inter, sans-serif' : 'Courier New'}`;
         ctx.textAlign = 'center';
-        ctx.fillText(node.label, 0, radius + 15);
+        ctx.fillText(getMaskedLabel(node), 0, radius + 15);
       }
 
       if (isSelected) {
@@ -324,7 +534,7 @@ const NetworkCanvas: React.FC = () => {
     });
 
     ctx.restore();
-  }, [graphData, filteredNodes, filteredEdges, selectedNode, activeChain, viewState, canvasRef, colors, theme, hoveredNode, clusterNodeIds, cycleNodeIds]);
+  }, [graphData, filteredNodes, filteredEdges, selectedNode, activeChain, viewState, canvasRef, colors, theme, hoveredNode, privacyMode, chainMetrics, nodePosById]);
 
   // Main Draw Loop
   useEffect(() => {
@@ -342,7 +552,7 @@ const NetworkCanvas: React.FC = () => {
     
     // Simple hit detection
     const hitNode = filteredNodes.find(node => {
-      const dist = Math.hypot(node.x - worldPos.x, node.y - worldPos.y);
+      const dist = Math.hypot((node.drawX ?? node.x) - worldPos.x, (node.drawY ?? node.y) - worldPos.y);
       return dist < 20; // Hit radius
     });
 
@@ -372,7 +582,7 @@ const NetworkCanvas: React.FC = () => {
           >
             <Plus className="w-4 h-4" />
           </button>
-          <div className="mx-3 h-[1px] bg-white/5" />
+          <div className="mx-3 h-px bg-white/5" />
           <button 
             onClick={zoomOut}
             className="p-4 hover:bg-white/5 text-text/40 hover:text-blue-node transition-all active:scale-90"
@@ -380,7 +590,7 @@ const NetworkCanvas: React.FC = () => {
           >
             <Minus className="w-4 h-4" />
           </button>
-          <div className="mx-3 h-[1px] bg-white/5" />
+          <div className="mx-3 h-px bg-white/5" />
           <button 
             onClick={resetView}
             className="p-4 hover:bg-white/5 text-text/40 hover:text-white transition-all active:scale-90"

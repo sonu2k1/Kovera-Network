@@ -5,13 +5,13 @@
 
 import React from 'react';
 import { useNetworkContext } from '../context/NetworkContext';
-import { LogOut, RefreshCw, Moon, Sun, PanelLeft, PanelRight, Zap, MapPinned } from 'lucide-react';
+import { LogOut, RefreshCw, Moon, Sun, PanelLeft, PanelRight, Zap, MapPinned, Lock, Globe2 } from 'lucide-react';
 
 const TopBar: React.FC = () => {
   const { 
     isAdmin, role, loading, regenerateGraph, logout, theme, toggleTheme, 
-    sidebarOpen, toggleSidebar, detailsOpen, toggleDetails, networkStats,
-    refreshGeocode, refreshing
+    sidebarOpen, toggleSidebar, detailsOpen, toggleDetails, networkStats, agentMetrics,
+    refreshGeocode, refreshing, privacyMode, togglePrivacyMode
   } = useNetworkContext();
 
   return (
@@ -51,6 +51,17 @@ const TopBar: React.FC = () => {
               <span>{networkStats.edges?.total || 0} Edges</span>
             </div>
           )}
+          <div className="hidden lg:flex gap-2 ml-3 text-[10px]">
+            <span className="px-2 py-1 rounded-full border border-border2 text-text2">
+              Agents: <span className="text-kovera font-semibold">{agentMetrics.agentsSignedUp}</span>
+            </span>
+            <span className="px-2 py-1 rounded-full border border-border2 text-text2">
+              Linked Clients: <span className="text-blue-node font-semibold">{agentMetrics.linkedClients}</span>
+            </span>
+            <span className="px-2 py-1 rounded-full border border-border2 text-text2">
+              Pocket: <span className="text-emerald-300 font-semibold">{agentMetrics.offMarketListings}</span>
+            </span>
+          </div>
         </div>
       </div>
 
@@ -92,6 +103,22 @@ const TopBar: React.FC = () => {
         </button>
 
         <div className="h-5 w-px bg-border2" />
+
+        <button 
+          onClick={togglePrivacyMode}
+          className={`p-2 rounded-lg transition-colors ${
+            privacyMode === 'private'
+              ? 'text-kovera bg-kovera/10 hover:bg-kovera/15'
+              : 'text-text3 hover:text-blue-node hover:bg-blue-node/10'
+          }`}
+          title={
+            privacyMode === 'private'
+              ? 'Private view: full names & addresses (Lock)'
+              : 'Public view: blurred for screenshare (Globe)'
+          }
+        >
+          {privacyMode === 'private' ? <Lock className="w-4 h-4" /> : <Globe2 className="w-4 h-4" />}
+        </button>
 
         <button 
           onClick={toggleTheme}

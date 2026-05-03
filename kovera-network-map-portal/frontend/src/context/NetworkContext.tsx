@@ -7,12 +7,18 @@
  * - POST refresh (geocode refresh)
  */
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { analyticsApi } from '../services/api';
+import { normalizeChainsFromApi } from '../utils/chainPaths';
 
 interface NetworkContextType {
   graphData: any;
   networkStats: any;
+  agentMetrics: {
+    agentsSignedUp: number;
+    linkedClients: number;
+    offMarketListings: number;
+  };
   clusters: any[];
   addressCycles: any[];
   excludeInternal: boolean;
@@ -22,6 +28,8 @@ interface NetworkContextType {
   selectedNode: any | null;
   activeChain: any | null;
   filter: string;
+  chainStatusFilter: 0 | 1 | 2 | 3;
+  privacyMode: 'public' | 'private';
   role: 'admin' | 'user' | null;
   isAdmin: boolean;
   theme: 'light' | 'dark';
@@ -34,6 +42,8 @@ interface NetworkContextType {
   setSelectedNode: (node: any | null) => void;
   setActiveChain: (chain: any | null) => void;
   setFilter: (filter: string) => void;
+  setChainStatusFilter: (value: 0 | 1 | 2 | 3) => void;
+  togglePrivacyMode: () => void;
   refreshGraph: () => Promise<void>;
   regenerateGraph: () => Promise<void>;
   refreshGeocode: () => Promise<void>;
@@ -56,6 +66,12 @@ export const NetworkProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [selectedNode, setSelectedNode] = useState<any | null>(null);
   const [activeChain, setActiveChain] = useState<any | null>(null);
   const [filter, setFilter] = useState('All');
+  const [chainStatusFilter, setChainStatusFilter] = useState<0 | 1 | 2 | 3>(
+    (Number(localStorage.getItem('kovera_chain_status_filter')) as 0 | 1 | 2 | 3) || 0
+  );
+  const [privacyMode, setPrivacyMode] = useState<'public' | 'private'>(
+    (localStorage.getItem('kovera_privacy_mode') as 'public' | 'private') || 'private'
+  );
   const [role, setRole] = useState<'admin' | 'user' | null>(
     (localStorage.getItem('kovera_role') as 'admin' | 'user') || null
   );
@@ -70,6 +86,28 @@ export const NetworkProvider: React.FC<{ children: React.ReactNode }> = ({ child
   );
 
   const isAdmin = role === 'admin';
+  const agentMetrics = useMemo(() => {
+    const nodes = graphData?.nodes || [];
+    const edges = graphData?.edges || [];
+
+    const fallbackAgents = new Set(
+      nodes
+        .filter((n: any) => ['user_home', 'pure_buyer'].includes(String(n.type || '').toLowerCase()))
+        .map((n: any) => n.uid || n.userId || n.id)
+    ).size;
+    const fallbackLinkedClients = edges.filter((e: any) => String(e.type || '').toUpperCase() === 'LIKE').length;
+    const fallbackOffMarket = nodes.filter(
+      (n: any) =>
+        String(n.type || '').toLowerCase() === 'seeded_listing' &&
+        String(n.listingCategory || n.source || '').toLowerCase() === 'off_market'
+    ).length;
+
+    return {
+      agentsSignedUp: Number(networkStats?.agents?.signedUp ?? networkStats?.agentsSignedUp ?? fallbackAgents ?? 0),
+      linkedClients: Number(networkStats?.agents?.linkedClients ?? networkStats?.linkedClients ?? fallbackLinkedClients ?? 0),
+      offMarketListings: Number(networkStats?.agents?.offMarketListings ?? networkStats?.offMarketListings ?? fallbackOffMarket ?? 0)
+    };
+  }, [graphData, networkStats]);
 
   const toggleTheme = useCallback(() => {
     const newTheme = theme === 'light' ? 'dark' : 'light';
@@ -101,6 +139,14 @@ export const NetworkProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   }, []);
 
+  const togglePrivacyMode = useCallback(() => {
+    setPrivacyMode(prev => {
+      const next = prev === 'private' ? 'public' : 'private';
+      localStorage.setItem('kovera_privacy_mode', next);
+      return next;
+    });
+  }, []);
+
   // Handle theme sync with document
   useEffect(() => {
     if (theme === 'light') {
@@ -118,11 +164,11 @@ export const NetworkProvider: React.FC<{ children: React.ReactNode }> = ({ child
    * 4. Clusters
    * 5. Address Cycles
    */
-  const fetchAllData = useCallback(async (excludeInternalVal: boolean, refresh = false) => {
+  const fetchAllData = useCallback(async (excludeInternalVal: boolean, refresh = false, chainFilter: 0 | 1 | 2 | 3 = 0) => {
     setLoading(true);
     try {
       const [graphRes, chainsRes, statsRes, clustersRes, cyclesRes] = await Promise.allSettled([
-        analyticsApi.getNetworkGraph(excludeInternalVal, refresh),
+        analyticsApi.getNetworkGraph(excludeInternalVal, refresh, chainFilter),
         analyticsApi.getNetworkChains(2),
         analyticsApi.getNetworkStats(),
         analyticsApi.getNetworkClusters(3),
@@ -130,9 +176,11 @@ export const NetworkProvider: React.FC<{ children: React.ReactNode }> = ({ child
       ]);
 
       if (graphRes.status === 'fulfilled') {
-        const chainsData = chainsRes.status === 'fulfilled' ? chainsRes.value.data.chains || [] : [];
+        const nodes = graphRes.value.data.nodes || [];
+        const rawChains = chainsRes.status === 'fulfilled' ? chainsRes.value.data.chains || [] : [];
+        const chainsData = normalizeChainsFromApi(rawChains, nodes);
         setGraphData({
-          nodes: graphRes.value.data.nodes || [],
+          nodes,
           edges: graphRes.value.data.edges || [],
           chains: chainsData,
         });
@@ -151,12 +199,12 @@ export const NetworkProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, []);
 
   const refreshGraph = useCallback(async () => {
-    await fetchAllData(excludeInternal, false);
-  }, [fetchAllData, excludeInternal]);
+    await fetchAllData(excludeInternal, false, chainStatusFilter);
+  }, [fetchAllData, excludeInternal, chainStatusFilter]);
 
   const regenerateGraph = async () => {
     if (!isAdmin) return;
-    await fetchAllData(excludeInternal, true);
+    await fetchAllData(excludeInternal, true, chainStatusFilter);
   };
 
   /**
@@ -168,21 +216,13 @@ export const NetworkProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
       await analyticsApi.refreshGeocode();
       // After geocode completes, fetch fresh data
-      await fetchAllData(excludeInternal, true);
+      await fetchAllData(excludeInternal, true, chainStatusFilter);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Geocode refresh failed');
     } finally {
       setRefreshing(false);
     }
   };
-
-  // Re-fetch when excludeInternal toggles
-  useEffect(() => {
-    const token = localStorage.getItem('kovera_token');
-    if (token && graphData) {
-      fetchAllData(excludeInternal, false);
-    }
-  }, [excludeInternal]);
 
   const logout = () => {
     localStorage.removeItem('kovera_token');
@@ -192,21 +232,19 @@ export const NetworkProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setNetworkStats(null);
     setClusters([]);
     setAddressCycles([]);
-    window.location.href = '/login';
+    window.location.href = '/network';
   };
 
   useEffect(() => {
-    const token = localStorage.getItem('kovera_token');
-    if (token) {
-      fetchAllData(excludeInternal, false);
-    }
-  }, []);
+    fetchAllData(excludeInternal, false, chainStatusFilter);
+  }, [excludeInternal, chainStatusFilter, fetchAllData]);
 
   return (
     <NetworkContext.Provider
       value={{
         graphData,
         networkStats,
+        agentMetrics,
         clusters,
         addressCycles,
         excludeInternal,
@@ -216,6 +254,8 @@ export const NetworkProvider: React.FC<{ children: React.ReactNode }> = ({ child
         selectedNode,
         activeChain,
         filter,
+        chainStatusFilter,
+        privacyMode,
         role,
         isAdmin,
         theme,
@@ -228,6 +268,11 @@ export const NetworkProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setSelectedNode,
         setActiveChain,
         setFilter,
+        setChainStatusFilter: (value) => {
+          setChainStatusFilter(value);
+          localStorage.setItem('kovera_chain_status_filter', String(value));
+        },
+        togglePrivacyMode,
         refreshGraph,
         regenerateGraph,
         refreshGeocode,

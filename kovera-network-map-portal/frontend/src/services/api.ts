@@ -27,9 +27,6 @@ api.interceptors.response.use(
     if (error.response && error.response.status === 401) {
       localStorage.removeItem('kovera_token');
       localStorage.removeItem('kovera_role');
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login';
-      }
     }
     return Promise.reject(error);
   }
@@ -57,8 +54,8 @@ export const adminApi = {
 // ── Kovera Network Map API ───────────────────────────────────────────
 export const analyticsApi = {
   // 1️⃣ Network Graph (nodes + edges)
-  getNetworkGraph: (excludeInternal = true, refresh = false) =>
-    api.get('/analytics/network/graph', { params: { excludeInternal, refresh } }),
+  getNetworkGraph: (excludeInternal = true, refresh = false, chainFilter: 0 | 1 | 2 | 3 = 0) =>
+    api.get('/analytics/network/graph', { params: { excludeInternal, refresh, chainFilter } }),
 
   // 2️⃣ Network Stats (header summary)
   getNetworkStats: () =>

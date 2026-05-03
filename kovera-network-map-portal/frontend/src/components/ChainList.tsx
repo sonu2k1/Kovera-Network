@@ -15,12 +15,16 @@ const ChainList: React.FC = () => {
 
   return (
     <div className="space-y-2 pt-1">
-      {graphData.chains.map((chain, idx) => (
+      {graphData.chains.map((chain, idx) => {
+        const cid = chain.id || `chain-${idx}`;
+        const pathLen = (chain.path?.length ?? chain.orderedPath?.length ?? 0);
+        const score = typeof chain.readinessScore === 'number' ? chain.readinessScore : chain.score;
+        return (
         <div 
-          key={chain.id}
-          onClick={() => setActiveChain(activeChain?.id === chain.id ? null : chain)}
+          key={cid}
+          onClick={() => setActiveChain(activeChain?.id === cid ? null : chain)}
           className={`p-3 rounded-xl transition-all cursor-pointer group ${
-            activeChain?.id === chain.id 
+            activeChain?.id === cid 
               ? 'border border-kovera bg-kovera/10 shadow-lg shadow-kovera/5' 
               : chain.isReady 
                 ? 'border border-kovera/20 bg-kovera/5 hover:border-kovera/40' 
@@ -28,28 +32,32 @@ const ChainList: React.FC = () => {
           }`}
         >
           <div className="flex justify-between items-start mb-1">
-            <span className={`text-[10px] font-bold font-mono ${chain.isReady ? 'text-kovera' : 'text-text3'}`}>
-              CH-{idx.toString().padStart(3, '0')}
+            <span className={`text-[10px] font-bold font-mono truncate max-w-[140px] ${chain.isReady ? 'text-kovera' : 'text-text3'}`}>
+              {cid}
             </span>
             {chain.isReady && (
-              <span className="text-[9px] px-1.5 py-0.5 bg-kovera/20 text-kovera rounded-full font-semibold">READY</span>
+              <span className="text-[9px] px-1.5 py-0.5 bg-kovera/20 text-kovera rounded-full font-semibold shrink-0">READY</span>
             )}
+          </div>
+          <div className="text-[10px] text-text3 uppercase tracking-wide mb-1">
+            {chain.chainType || 'chain'} · {pathLen} nodes (mapped {chain.path?.length ?? 0})
           </div>
           
           <div className="text-xs font-semibold mb-2 text-text2">
-            {chain.path.length} Node Move Path
+            Move path on map
           </div>
 
-          {chain.isReady && (
+          {(chain.isReady || typeof score === 'number') && (
             <div className="w-full bg-bg h-1.5 rounded-full overflow-hidden">
               <div 
                 className="bg-gradient-to-r from-kovera to-kovera-light h-full rounded-full transition-all duration-500" 
-                style={{ width: `${Math.min(100, 40 + (chain.score || 0) * 10)}%` }} 
+                style={{ width: `${Math.min(100, Math.round((score ?? 0) * 100))}%` }} 
               />
             </div>
           )}
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 };
