@@ -11,7 +11,7 @@ import { Info, X, MapPin, Heart, ArrowDownLeft, ArrowUpRight, Link2 } from 'luci
 import { motion } from 'motion/react';
 
 const DetailPanel: React.FC = () => {
-  const { selectedNode, setSelectedNode, detailsOpen } = useNetworkContext();
+  const { selectedNode, setSelectedNode, detailsOpen, privacyMode } = useNetworkContext();
   const [nodeDetail, setNodeDetail] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
@@ -47,6 +47,13 @@ const DetailPanel: React.FC = () => {
     return type.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
   };
 
+  const safeLabel = (value?: string) => {
+    const raw = String(value || '').trim();
+    if (!raw || raw.length <= 2) return 'Unknown';
+    if (raw === raw.toUpperCase() && raw.length <= 3) return 'Unknown';
+    return raw;
+  };
+
   return (
     <motion.div 
       initial={false}
@@ -73,7 +80,7 @@ const DetailPanel: React.FC = () => {
               <div className="flex items-start justify-between mb-6">
                 <div>
                   <h2 className="text-lg font-bold leading-tight truncate max-w-[180px] text-text">
-                    {loading ? 'Loading...' : (displayNode.name || displayNode.label)}
+                    {loading ? 'Loading...' : safeLabel(displayNode.name || displayNode.label)}
                   </h2>
                   <p className="text-[10px] text-text3 font-mono mt-1">id: {displayNode.id}</p>
                 </div>
@@ -101,14 +108,14 @@ const DetailPanel: React.FC = () => {
                     <div className="kovera-card p-3">
                       <div className="text-[10px] text-text3 font-mono">Label</div>
                       <div className="text-sm font-semibold text-amber-node">
-                        {displayNode.label || '—'}
+                        {safeLabel(displayNode.label) || '—'}
                       </div>
                     </div>
                   </div>
                 </section>
 
                 {/* Address (from node detail API) */}
-                {displayNode.address && (
+                {displayNode.address && privacyMode === 'private' && (
                   <section>
                     <h4 className="text-[10px] uppercase text-text3 font-semibold mb-2 tracking-widest flex items-center gap-1.5">
                       <MapPin className="w-3 h-3" /> Address
@@ -210,11 +217,11 @@ const DetailPanel: React.FC = () => {
             <div className="p-5 bg-bg/40 border-t border-border2">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-kovera/10 border border-kovera/20 flex items-center justify-center font-mono text-xs font-bold text-kovera">
-                  {displayNode.label || 'N'}
+                  {safeLabel(displayNode.label) || 'N'}
                 </div>
                 <div>
                   <div className="text-xs font-semibold text-text">
-                    {displayNode.name || formatType(displayNode.type)}
+                    {safeLabel(displayNode.name) || formatType(displayNode.type)}
                   </div>
                   <div className="text-[10px] text-text3 font-mono">
                     uid: {displayNode.userId || displayNode.uid || displayNode.id}

@@ -11,6 +11,20 @@ interface GeocodeResult {
   lng: number;
 }
 
+function seededOffset(seed: string): { latOffset: number; lngOffset: number } {
+  let hash = 2166136261;
+  for (let i = 0; i < seed.length; i++) {
+    hash ^= seed.charCodeAt(i);
+    hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+  }
+  const n1 = ((hash >>> 0) % 10000) / 10000;
+  const n2 = (((hash >>> 8) >>> 0) % 10000) / 10000;
+  return {
+    latOffset: (n1 - 0.5) * 0.08,
+    lngOffset: (n2 - 0.5) * 0.08
+  };
+}
+
 const CACHE_TTL_DAYS = parseInt(process.env.GEOCODE_CACHE_TTL_DAYS || '7', 10);
 const GOOGLE_API_KEY = process.env.GOOGLE_GEOCODING_API_KEY;
 
@@ -44,10 +58,11 @@ export async function geocodeAddress(address: string): Promise<GeocodeResult | n
 
   // 2. Call Google Geocoding API
   if (!GOOGLE_API_KEY || GOOGLE_API_KEY === 'your_google_key_here') {
-    // Demo Mode: Return static SF centered random coordinates
+    // Demo Mode: Return deterministic SF-centered pseudo geocode per address.
+    const { latOffset, lngOffset } = seededOffset(normalizedAddress);
     return {
-      lat: 37.7749 + (Math.random() - 0.5) * 0.1,
-      lng: -122.4194 + (Math.random() - 0.5) * 0.1
+      lat: 37.7749 + latOffset,
+      lng: -122.4194 + lngOffset
     };
   }
 

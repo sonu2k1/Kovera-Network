@@ -26,6 +26,8 @@ export interface GraphNode {
   isSharedAddress: boolean;
   isDoubleIntent: boolean;
   dreamHomeSource?: string;
+  listingCategory?: 'public' | 'off_market';
+  personType?: 'pure_buyer' | 'swapper' | 'pure_seller';
 }
 
 export interface GraphEdge {
@@ -109,7 +111,8 @@ export async function buildGraph() {
         incomeCount: 0,
         outcomeCount: 0,
         isSharedAddress: false,
-        isDoubleIntent: false
+        isDoubleIntent: false,
+        listingCategory: 'public'
       });
     }
   }
@@ -126,7 +129,8 @@ export async function buildGraph() {
         incomeCount: 0,
         outcomeCount: 0,
         isSharedAddress: false,
-        isDoubleIntent: false
+        isDoubleIntent: false,
+        personType: 'pure_buyer'
       });
     }
   }
@@ -220,6 +224,15 @@ export async function buildGraph() {
       addrGroups.set(n, group);
     }
   }
+
+  // Classify user-home nodes by intent
+  const dreamSourceUsers = new Set(
+    dreamRes.rows.map((d: any) => getUserNodeId(d.user_id))
+  );
+  for (const node of nodesMap.values()) {
+    if (node.type !== 'USER_HOME') continue;
+    node.personType = dreamSourceUsers.has(node.id) ? 'swapper' : 'pure_seller';
+  }
   for (const ids of addrGroups.values()) {
     if (ids.length > 1) {
       for (const id of ids) {
@@ -307,7 +320,9 @@ async function buildMockGraph() {
       incomeCount: 0,
       outcomeCount: 0,
       isSharedAddress: false,
-      isDoubleIntent: false
+      isDoubleIntent: false,
+      personType: rn.type === 'PURE_BUYER' ? 'pure_buyer' : undefined,
+      listingCategory: rn.type === 'SEEDED_LISTING' ? 'public' : undefined
     });
   });
 
@@ -329,7 +344,9 @@ async function buildMockGraph() {
       incomeCount: 0,
       outcomeCount: 0,
       isSharedAddress: Math.random() > 0.8,
-      isDoubleIntent: Math.random() > 0.9
+      isDoubleIntent: Math.random() > 0.9,
+      listingCategory: type === 'SEEDED_LISTING' ? (Math.random() > 0.7 ? 'off_market' : 'public') : undefined,
+      personType: type === 'PURE_BUYER' ? 'pure_buyer' : (type === 'USER_HOME' ? (Math.random() > 0.45 ? 'swapper' : 'pure_seller') : undefined)
     });
   }
 
